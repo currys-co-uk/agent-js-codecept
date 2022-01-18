@@ -98,13 +98,26 @@ event.dispatcher.on('reportportal.result', (result) => {
 })
 ```
 
+### Support for retried Test Scenarios
+
+Added support for retried Test Scenarios used in accordance with https://codecept.io/basics/#retry-scenario
+
+```js
+Scenario('Really complex', ({ I }) => {
+  // test goes here
+}).retry(2);
+
+// alternative
+Scenario('Really complex', { retries: 2 },({ I }) => {});
+```
+
 ## Todo
 
 - [ ] Support `run-workers` command to aggregate all tests under one launch.
 
 ## Debugging Plugin
 
-To debug this plugin run script enabing DEBUG env variable:
+To debug this plugin run script enabling DEBUG env variable:
 
 ```
 DEBUG="codeceptjs:reportportal"  npx codeceptjs run
