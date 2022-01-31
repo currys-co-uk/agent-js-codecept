@@ -167,12 +167,12 @@ module.exports = (config) => {
 
       debug(`Attaching screenshot & error to failed step`);
   
-      const screenshot = await attachScreenshot();      
+      const screenshot = await attachScreenshot();
 
       resp = await rpClient.sendLog(step.tempId, {
         level: 'ERROR',
         message: `${err.stack}`,
-        time: step.startTime,
+        time: step.startTime || rpClient.helpers.now(),
       }, screenshot).promise; 
 
     }
