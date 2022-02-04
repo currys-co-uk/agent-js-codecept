@@ -173,8 +173,8 @@ module.exports = (config) => {
           message: `${err.stack}`,
           time: step.startTime || rpClient.helpers.now(),
         }, screenshot).promise; 
-      } catch (error) {
-        output.err(error);
+      } catch (err) {
+        output.error(err);
       }
     }
 
@@ -189,8 +189,8 @@ module.exports = (config) => {
           level: 'ERROR',
           message: `${err.stack}`,
         }).promise;
-      } catch (error) {
-        output.err(error);
+      } catch (err) {
+        output.error(err);
       }
     }
 
@@ -237,8 +237,8 @@ module.exports = (config) => {
         type: method,
         hasStats,
       }, launchObj.tempId, parentId);
-    } catch (error) {
-      output.err(error);
+    } catch (err) {
+      output.error(err);
     }
 
   }
