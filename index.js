@@ -162,19 +162,20 @@ module.exports = (config) => {
     }
 
     if (failedStep && failedStep.tempId) {
-
       const step = failedStep;
 
       debug(`Attaching screenshot & error to failed step`);
-  
       const screenshot = await attachScreenshot();
 
-      resp = await rpClient.sendLog(step.tempId, {
-        level: 'ERROR',
-        message: `${err.stack}`,
-        time: step.startTime || rpClient.helpers.now(),
-      }, screenshot).promise; 
-
+      try {
+        resp = await rpClient.sendLog(step.tempId, {
+          level: 'ERROR',
+          message: `${err.stack}`,
+          time: step.startTime || rpClient.helpers.now(),
+        }, screenshot).promise; 
+      } catch (error) {
+        output.err(error);
+      }
     }
 
     if (!test.tempId) return;
@@ -183,10 +184,14 @@ module.exports = (config) => {
     debug(`${testTempId}: Test '${test.title}' failed.`);
 
     if (!failedStep) {
-      await rpClient.sendLog(testTempId, {
-        level: 'ERROR',
-        message: `${err.stack}`,
-      }).promise;      
+      try {
+        await rpClient.sendLog(testTempId, {
+          level: 'ERROR',
+          message: `${err.stack}`,
+        }).promise;
+      } catch (error) {
+        output.err(error);
+      }
     }
 
     rpClient.finishTestItem(testTempId, {
