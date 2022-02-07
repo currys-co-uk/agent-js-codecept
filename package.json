@@ -1,6 +1,6 @@
 {
   "name": "@currys-co-uk/agent-js-codecept",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Reportportal plugin for Codecept JS tests",
   "repository": {
     "type": "git",
