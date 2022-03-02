@@ -161,25 +161,30 @@ module.exports = (config) => {
       retriedTempId = test.ctx.test.tempId
     }
 
+    if (!test.tempId) return;
+    const testTempId = retriedTempId ? retriedTempId : test.tempId
+
     if (failedStep && failedStep.tempId) {
       const step = failedStep;
 
       debug(`Attaching screenshot & error to failed step`);
       const screenshot = await attachScreenshot();
-
       try {
         resp = await rpClient.sendLog(step.tempId, {
           level: 'ERROR',
           message: `${err.stack}`,
           time: step.startTime || rpClient.helpers.now(),
         }, screenshot).promise; 
-      } catch (err) {
-        output.error(err);
+      } catch (error) {
+        output.debug('Attaching screenshot failed: ' + error);
+        output.debug('Re-Attaching screenshot to testObj: ' + testTempId);
+        resp = await rpClient.sendLog(testTempId, {
+          level: 'ERROR',
+          message: 'Attached screenshot',
+          time: step.startTime || rpClient.helpers.now(),
+        }, screenshot).promise; 
       }
     }
-
-    if (!test.tempId) return;
-    const testTempId = retriedTempId ? retriedTempId : test.tempId
 
     debug(`${testTempId}: Test '${test.title}' failed.`);
 
@@ -189,8 +194,8 @@ module.exports = (config) => {
           level: 'ERROR',
           message: `${err.stack}`,
         }).promise;
-      } catch (err) {
-        output.error(err);
+      } catch (error) {
+        output.error(error);
       }
     }
 
