@@ -155,6 +155,10 @@ module.exports = (config) => {
     launchStatus = rp_FAILED;
     suiteStatus = rp_FAILED;
 
+    //error stack/message handling
+    const testFailedError = !err ? 'Unknown error' : (err.stack ? err.stack : (err.inspect ? err.inspect() : JSON.stringify(err)))
+
+    //retried tests handling
     let retriedTempId;
     if (test.ctx && test.ctx.test && test.ctx.test.retriedTitle && test.ctx.test._currentRetry > 0 ) {
       debug(`Retried run of test`);
@@ -164,6 +168,7 @@ module.exports = (config) => {
     if (!test.tempId) return;
     const testTempId = retriedTempId ? retriedTempId : test.tempId
 
+    // screenshot handling
     if (failedStep && failedStep.tempId) {
       const step = failedStep;
 
@@ -172,37 +177,40 @@ module.exports = (config) => {
       try {
         resp = await rpClient.sendLog(step.tempId, {
           level: 'ERROR',
-          message: `${err.stack}`,
+          message: testFailedError,
           time: step.startTime || rpClient.helpers.now(),
         }, screenshot).promise; 
       } catch (error) {
         output.debug('Attaching screenshot failed: ' + error);
-        output.debug('Re-Attaching screenshot to testObj: ' + testTempId);
-        resp = await rpClient.sendLog(testTempId, {
-          level: 'ERROR',
-          message: 'Attached screenshot',
-          time: step.startTime || rpClient.helpers.now(),
-        }, screenshot).promise; 
+        try {
+          resp = await rpClient.sendLog(testTempId, {
+            level: 'ERROR',
+            message: 'Attached screenshot',
+            time: step.startTime || rpClient.helpers.now(),
+          }, screenshot).promise; 
+        } catch (error) {
+          output.debug('Re-Attaching screenshot failed: ' + error);
+        }
       }
     }
 
     debug(`${testTempId}: Test '${test.title}' failed.`);
 
-    if (!failedStep) {
-      try {
-        await rpClient.sendLog(testTempId, {
-          level: 'ERROR',
-          message: `${err.stack}`,
-        }).promise;
-      } catch (error) {
-        output.error(error);
-      }
+    // failed test stack/error attaching
+    try {
+      await rpClient.sendLog(testTempId, {
+        level: 'ERROR',
+        message: testFailedError,
+      }).promise;
+    } catch (error) {
+      output.error(error);
     }
 
+    // finishing test item
     rpClient.finishTestItem(testTempId, {
       endTime: test.endTime || rpClient.helpers.now(),
       status: rp_FAILED,
-      message: `${err.stack}`,
+      message: testFailedError,
     });  
   });
 
