@@ -125,6 +125,21 @@ module.exports = (config) => {
     })
   });
 
+  event.dispatcher.on(event.step.comment, (step) => {
+    //handling I.Say comments
+    const testTempId = getTestTempId(testObj);
+    if (!testTempId) return;
+
+    try {
+      rpClient.sendLog(testTempId, {
+        level: 'INFO',
+        message: "I say: " + step,
+      });
+    } catch (error) {
+      output.error(error);
+    }
+  });
+
   event.dispatcher.on(event.step.before, (step) => {
     recorder.add(async () => {
       const parent = await startMetaSteps(step);
