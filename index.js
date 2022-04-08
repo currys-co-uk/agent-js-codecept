@@ -50,7 +50,7 @@ module.exports = (config) => {
   for (let field of requiredFields) {
     if (!config[field]) throw new Error(`ReportPortal config is invalid. Key ${field} is missing in config.\nRequired fields: ${requiredFields} `)
   }
-  
+
   let reportUrl;
   let launchObj;
   let suiteObj;
@@ -65,7 +65,7 @@ module.exports = (config) => {
 
   function logCurrent(data, file) {
     const obj = stepObj || testObj;
-    if (obj) rpClient.sendLog(obj.tempId, data, file); 
+    if (obj) rpClient.sendLog(obj.tempId, data, file);
   }
 
   event.dispatcher.on(event.all.before, async () => {
@@ -91,8 +91,8 @@ module.exports = (config) => {
     output.debug = (message) => {
       outputDebug(message);
       logCurrent({ level: 'debug', message });
-    }  
-    
+    }
+
     output.error = (message) => {
       outputError(message);
       logCurrent({ level: 'error', message });
@@ -125,6 +125,21 @@ module.exports = (config) => {
     })
   });
 
+  event.dispatcher.on(event.step.comment, (step) => {
+    //handling I.Say comments
+    const testTempId = getTestTempId(testObj);
+    if (!testTempId) return;
+
+    try {
+      rpClient.sendLog(testTempId, {
+        level: 'INFO',
+        message: "I say: " + step,
+      });
+    } catch (error) {
+      output.error(error);
+    }
+  });
+
   event.dispatcher.on(event.step.before, (step) => {
     recorder.add(async () => {
       const parent = await startMetaSteps(step);
@@ -142,6 +157,31 @@ module.exports = (config) => {
       if (metaStep) metaStep.status = 'failed';
     }
     if (step && step.tempId) failedStep = Object.assign({}, step);
+
+    try {
+      promiseChain = recorder.scheduled();
+      const tryToStart = promiseChain.lastIndexOf("tryTo\n--->");
+      const tryToRestore = promiseChain.lastIndexOf("recorder.session.restore('tryTo');");
+      const stepPosition = promiseChain.lastIndexOf(step.name + ': ' + step.humanizeArgs());
+
+      if (tryToStart && tryToRestore && stepPosition) {
+        if ((tryToStart < tryToRestore) && (tryToStart < stepPosition) && (stepPosition < tryToRestore)) {
+          rpClient.sendLog(step.tempId, {
+            level: 'WARNING',
+            message: 'TryTo Step failed - test will continue',
+          });
+
+          rpClient.finishTestItem(step.tempId, {
+            endTime: rpClient.helpers.now(),
+            status: rp_FAILED,
+          });
+        }
+      }
+    }
+    catch (error) {
+      output.debug('Finalizing step failed: ' + error);
+    }
+
   });
 
   event.dispatcher.on(event.step.passed, (step, err) => {
@@ -159,14 +199,8 @@ module.exports = (config) => {
     const testFailedError = !err ? 'Unknown error' : (err.stack ? err.stack : (err.inspect ? err.inspect() : JSON.stringify(err)))
 
     //retried tests handling
-    let retriedTempId;
-    if (test.ctx && test.ctx.test && test.ctx.test.retriedTitle && test.ctx.test._currentRetry > 0 ) {
-      debug(`Retried run of test`);
-      retriedTempId = test.ctx.test.tempId
-    }
-
-    if (!test.tempId) return;
-    const testTempId = retriedTempId ? retriedTempId : test.tempId
+    const testTempId = getTestTempId(test);
+    if (!testTempId) return;
 
     // screenshot handling
     if (failedStep && failedStep.tempId) {
@@ -179,7 +213,7 @@ module.exports = (config) => {
           level: 'ERROR',
           message: testFailedError,
           time: step.startTime || rpClient.helpers.now(),
-        }, screenshot).promise; 
+        }, screenshot).promise;
       } catch (error) {
         output.debug('Attaching screenshot failed: ' + error);
         try {
@@ -187,7 +221,7 @@ module.exports = (config) => {
             level: 'ERROR',
             message: 'Attached screenshot',
             time: step.startTime || rpClient.helpers.now(),
-          }, screenshot).promise; 
+          }, screenshot).promise;
         } catch (error) {
           output.debug('Re-Attaching screenshot failed: ' + error);
         }
@@ -211,7 +245,7 @@ module.exports = (config) => {
       endTime: test.endTime || rpClient.helpers.now(),
       status: rp_FAILED,
       message: testFailedError,
-    });  
+    });
   });
 
   event.dispatcher.on(event.test.passed, (test, err) => {
@@ -219,7 +253,7 @@ module.exports = (config) => {
     rpClient.finishTestItem(test.tempId, {
       endTime: test.endTime || rpClient.helpers.now(),
       status: rp_PASSED,
-    });    
+    });
   });
 
   event.dispatcher.on(event.test.after, (test) => {
@@ -283,7 +317,7 @@ module.exports = (config) => {
       rerunOf: config.rerunOf,
     }
 
-    if (process.env.RP_LAUNCH_ID) { 
+    if (process.env.RP_LAUNCH_ID) {
       options.id = process.env.RP_LAUNCH_ID
     }
 
@@ -292,7 +326,7 @@ module.exports = (config) => {
 
   async function attachScreenshot() {
     if (!helper) return undefined;
-    
+
     const fileName = `${rpClient.helpers.now()}.png`;
     try {
       await helper.saveScreenshot(fileName);
@@ -343,7 +377,7 @@ module.exports = (config) => {
       if (isEqualMetaStep(metaStep, currentMetaSteps[i])) {
         metaStep.tempId = currentMetaSteps[i].tempId;
         continue;
-      } 
+      }
       // close metasteps other than current
       for (let j = currentMetaSteps.length-1; j >= i; j--) {
         await finishStep(currentMetaSteps[j]);
@@ -396,8 +430,8 @@ function iterateMetaSteps(step, fn) {
 const isEqualMetaStep = (metastep1, metastep2) => {
   if (!metastep1 && !metastep2) return true;
   if (!metastep1 || !metastep2) return false;
-  return metastep1.actor === metastep2.actor 
-    && metastep1.name === metastep2.name 
+  return metastep1.actor === metastep2.actor
+    && metastep1.name === metastep2.name
     && metastep1.args.join(',') === metastep2.args.join(',');
 };
 
@@ -408,3 +442,13 @@ function rpStatus(status) {
   return status;
 }
 
+function getTestTempId(test) {
+  let retriedTempId;
+  if (test.ctx && test.ctx.test && test.ctx.test.retriedTitle && test.ctx.test._currentRetry > 0 ) {
+    debug(`Retried run of test`);
+    retriedTempId = test.ctx.test.tempId;
+  }
+
+  if (!test.tempId) return;
+  return retriedTempId ? retriedTempId : test.tempId;
+}
