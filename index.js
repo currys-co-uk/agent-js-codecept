@@ -143,7 +143,7 @@ module.exports = (config) => {
   event.dispatcher.on(event.step.before, (step) => {
     recorder.add(async () => {
       const parent = await startMetaSteps(step);
-      stepObj = startTestItem(step.toString().slice(0, 1024), rp_STEP, parent.tempId);
+      stepObj = startTestItem(convertStepToString(step), rp_STEP, parent.tempId);
       step.tempId = stepObj.tempId;
     })
   });
@@ -387,7 +387,7 @@ module.exports = (config) => {
       metaStepObj = currentMetaSteps[i-1] || metaStepObj;
 
       const isNested = !!metaStepObj.tempId;
-      metaStepObj = startTestItem(metaStep.toString().slice(0, 1024), rp_STEP , metaStepObj.tempId || testObj.tempId, false);
+      metaStepObj = startTestItem(convertStepToString(metaStep), rp_STEP , metaStepObj.tempId || testObj.tempId, false);
       metaStep.tempId = metaStepObj.tempId;
       debug(`${metaStep.tempId}: The stepId '${metaStep.toString()}' is started. Nested: ${isNested}`);
     }
@@ -451,4 +451,10 @@ function getTestTempId(test) {
 
   if (!test.tempId) return;
   return retriedTempId ? retriedTempId : test.tempId;
+}
+
+function convertStepToString(step) {
+  step = step.toString().slice(0, 1024);
+
+  return step.includes('I am on page') ? step.replace(/"/g, '') : step;
 }
