@@ -77,7 +77,7 @@ module.exports = (config) => {
       output.error(err);
       process.exit(1);
     }
-    output.print(`📋 Writing results to ReportPortal: ${config.projectName} > ${config.endpoint}`);
+    output.print('📋 Writing results to ReportPortal: ' + config.endpoint.replace('api/v1', `ui/#${config.projectName}/launches/all`));
 
     const outputLog = output.log;
     const outputDebug = output.debug;
