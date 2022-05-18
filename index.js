@@ -207,7 +207,7 @@ module.exports = (config) => {
       const step = failedStep;
 
       debug(`Attaching screenshot & error to failed step`);
-      const screenshot = await attachScreenshot();
+      const screenshot = await createScreenshot();
       try {
         resp = await rpClient.sendLog(step.tempId, {
           level: 'ERROR',
@@ -324,7 +324,7 @@ module.exports = (config) => {
     return rpClient.startLaunch(options);
   }
 
-  async function attachScreenshot() {
+  async function createScreenshot() {
     if (!helper) return undefined;
 
     const fileName = `${rpClient.helpers.now()}.png`;
@@ -412,7 +412,38 @@ module.exports = (config) => {
 
   return {
     addLog: logCurrent,
+    getConfig: getConfig,
+    getCurrentStepId: getCurrentStepId,
+    attachImageFile: attachImageFile,
   };
+
+  async function attachImageFile(filePath, stepId, level = 'INFO') {
+    try {
+      const content = fs.readFileSync(filePath);
+      const fileName = path.basename(filePath);
+      const imageFile = {
+        name: fileName,
+        type: 'image/png',
+        content
+      };
+      
+      resp = await rpClient.sendLog(stepId, {
+        level: level,
+        message: 'Attached screenshot ' + fileName,
+        time: rpClient.helpers.now(),
+      }, imageFile).promise;
+    } catch (error) {
+      output.debug('Attaching screenshot failed: ' + error);
+    }
+  }
+  
+  function getCurrentStepId() {
+    return stepObj.tempId;
+  }
+  
+  function getConfig() {
+    return config;
+  }
 };
 
 function metaStepsToArray(step) {
